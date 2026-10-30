@@ -1,8 +1,70 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>商いノート | 売上・利益ダッシュボード</title><link rel="stylesheet" href="style.css"></head>
-<body><div class="layout"><aside><a class="brand" href="./">▧ 商いノート<span>SALES & PROFIT</span></a><p class="nav active">▦ ダッシュボード</p><div class="aside-note">数字を整えて、<br>次の商いへ。<small>あなたのデータは端末内で処理。<br>サーバーへの送信はありません。</small></div></aside><main><header><div><p class="eyebrow">YOUR BUSINESS, AT A GLANCE</p><h1>売上・利益ダッシュボード</h1><p class="muted">日々の売上を、次の一手につながる数字に。</p></div><button id="theme" class="subtle" aria-label="表示テーマを切り替える">テーマ：自動</button></header>
-<section class="upload"><div class="upload-icon">↑</div><div><h2>CSVを読み込んで、商いを見える化</h2><p>SKU・販売数量・販売単価・仕入原価・販売日をまとめて集計</p><div class="actions"><label class="primary file-label">CSVを選択<input id="file" type="file" accept=".csv,text/csv"></label><button id="sample" class="subtle">サンプルで試す</button><a href="sample.csv" download class="text-link">サンプルCSVをダウンロード ↓</a></div><small>UTF-8 / 10MBまで · 日付は YYYY-MM-DD · 原価は1個あたり</small></div></section>
-<div id="errors" class="errors" role="alert" hidden></div><div class="section-heading"><div><h2>パフォーマンス概要</h2><p id="status" class="muted" role="status" aria-live="polite">CSVを読み込むと集計結果が表示されます</p></div><button id="export" class="subtle" disabled>集計CSVを保存 ↓</button></div>
-<section class="kpis" aria-label="主要指標"><article><p>売上</p><strong id="revenue">—</strong><small>販売数量 × 販売単価</small></article><article><p>売上原価</p><strong id="cogs">—</strong><small>販売数量 × 仕入原価</small></article><article class="highlight"><p>粗利益</p><strong id="profit">—</strong><small>売上 − 売上原価</small></article><article><p>粗利益率</p><strong id="margin">—</strong><small>粗利益 ÷ 売上 × 100</small></article></section>
-<section class="panel"><div class="section-heading"><div><h2>月別の推移</h2><p class="muted">売上と粗利益の動き</p></div><div class="legend"><span>● 売上</span><span>● 粗利益</span></div></div><div id="chart" class="chart"><p class="empty">月別データがここに表示されます</p></div><details><summary>月別の数値を確認</summary><div class="table-wrap"><table><thead><tr><th>月</th><th>売上</th><th>粗利益</th></tr></thead><tbody id="months"></tbody></table></div></details></section>
-<section class="panel"><div class="section-heading"><div><h2>SKU別の実績</h2><p class="muted">売上の高い順に表示</p></div><span id="sku-count" class="badge">0 SKU</span></div><div class="table-wrap"><table><thead><tr><th>SKU</th><th>販売数量</th><th>売上</th><th>売上原価</th><th>粗利益</th><th>粗利益率</th></tr></thead><tbody id="skus"><tr><td colspan="6" class="empty">CSVを選択するか、サンプルでお試しください</td></tr></tbody></table></div></section><footer>商いノート <span>すべての処理はブラウザ内で完結 · 再読み込みするとデータは消去されます</span></footer></main></div><script type="module" src="js/app.js"></script></body></html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>商いノート | 売上と利益</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#overview">集計結果へ移動</a>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a class="brand" href="./" aria-label="商いノート ホーム"><span class="brand-mark" aria-hidden="true"></span>商いノート</a>
+      <span class="version">Ver.1.1</span>
+      <button id="theme" class="subtle theme-button" aria-label="表示テーマを切り替える">テーマ：自動</button>
+    </div>
+  </header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">商いの記録</p><h1>売上と利益</h1><p class="muted">売れた数と、手元に残る利益を確かめる。</p></div><span class="privacy-note">CSVは端末内で処理</span></div>
+
+    <section class="upload panel" aria-labelledby="upload-title" id="import">
+      <div class="upload-copy"><p class="step-label">はじめに</p><h2 id="upload-title">売上CSVを読み込む</h2><p class="muted">ファイルを選ぶだけで、売上・原価・利益をまとめます。<br>データは外部サーバーへ送信しません。</p></div>
+      <div class="upload-controls">
+        <label class="primary file-label">CSVを選択<input id="file" type="file" accept=".csv,text/csv" aria-label="売上CSVを選択" aria-describedby="csv-help"></label>
+        <div class="sample-actions"><button id="sample" class="text-button">サンプルで試す</button><span aria-hidden="true">／</span><a href="sample.csv" download>サンプルCSVを保存</a></div>
+        <p id="csv-help" class="hint">UTF-8・10MBまで</p>
+      </div>
+      <details class="csv-guide"><summary>CSVの形式と読み込み方</summary><p>1行目を下記のヘッダーにし、2行目以降に取引を記入してください。仕入原価は1個あたり、販売日は YYYY-MM-DD 形式です。</p><code>SKU,販売数量,販売単価,仕入原価,販売日</code><p>CSVを選択 → 内容を確認 → 必要に応じて集計CSVを保存。読み込みエラーがある場合は、該当レコードを修正して再度選択してください。</p></details>
+    </section>
+    <div id="errors" class="errors" role="alert" tabindex="-1" hidden></div>
+
+    <section id="overview" aria-labelledby="overview-title" tabindex="-1">
+      <div class="section-heading"><div><h2 id="overview-title">全体の実績</h2><p id="status" class="muted" role="status" aria-live="polite">CSVを選択するか、サンプルで操作をお試しください。</p></div><button id="export" class="subtle" disabled>集計CSVを保存</button></div>
+      <div class="kpis">
+        <article><h3>売上</h3><strong id="revenue">—</strong><span class="kpi-note">販売金額の合計</span></article>
+        <article><h3>売上原価</h3><strong id="cogs">—</strong><span class="kpi-note">販売した商品の仕入額</span></article>
+        <article class="profit-card"><h3>粗利益</h3><strong id="profit">—</strong><span id="profit-note" class="kpi-note">売上から原価を引いた利益</span></article>
+        <article><h3>粗利益率</h3><strong id="margin">—</strong><span class="kpi-note">売上に占める粗利益</span></article>
+      </div>
+      <details class="formulas"><summary>指標の計算方法</summary><p>売上 = 販売数量 × 販売単価 ／ 売上原価 = 販売数量 × 仕入原価<br>粗利益 = 売上 − 売上原価 ／ 粗利益率 = 粗利益 ÷ 売上 × 100<br>売上0円の粗利益率は「計算不能」です。税・送料・手数料は含みません。</p></details>
+    </section>
+
+    <section class="panel monthly" aria-labelledby="monthly-title">
+      <div class="section-heading"><div><h2 id="monthly-title">月別の推移</h2><p class="muted">取引がある月を表示します</p></div><div class="segmented" role="group" aria-label="グラフの表示指標"><button id="amount-mode" aria-pressed="true" disabled>売上・粗利益</button><button id="margin-mode" aria-pressed="false" disabled>粗利益率</button></div></div>
+      <div id="chart-empty" class="empty-state"><p>読み込んだCSVから、月ごとの推移を表示します。</p><a href="#import">売上CSVの読み込みへ</a></div>
+      <div id="chart-content" hidden>
+        <div class="chart-toolbar"><div id="legend" class="legend"><span class="revenue-key">売上</span><span class="profit-key">粗利益</span></div><label class="month-label">確認する月<select id="month-select" aria-label="確認する月"></select></label></div>
+        <div id="chart" class="chart" role="region" aria-label="月別グラフ。横にスクロールできます" tabindex="0"></div>
+        <p class="hint chart-hint">グラフの月をタップして数値を確認。横に長い場合はスクロールできます。</p>
+        <div id="month-detail" class="month-detail" role="status" aria-live="polite" aria-atomic="true"></div>
+        <details class="monthly-values"><summary>月別の数値を一覧で見る</summary><div class="table-wrap" role="region" aria-label="月別集計表" tabindex="0"><table><caption class="sr-only">月別の売上・売上原価・粗利益・粗利益率</caption><thead><tr><th scope="col">月</th><th scope="col">売上</th><th scope="col">売上原価</th><th scope="col">粗利益</th><th scope="col">粗利益率</th></tr></thead><tbody id="months"></tbody></table></div></details>
+      </div>
+    </section>
+
+    <section class="panel sku-panel" aria-labelledby="sku-title">
+      <div class="section-heading"><div class="title-with-count"><h2 id="sku-title">SKU別の実績</h2><span id="sku-count" class="badge">0 SKU</span></div><div class="sort-controls"><label for="sort-key">並べ替え</label><select id="sort-key" disabled><option value="revenue">売上</option><option value="profit">粗利益</option><option value="margin">粗利益率</option><option value="quantity">販売数量</option></select><button id="sort-direction" class="subtle" disabled aria-label="並べ替え方向：降順。昇順に切り替える">高い順 ↓</button></div></div>
+      <div id="sku-empty" class="empty-state"><p>商品ごとの売れ行きと利益を比較できます。</p><a href="#import">売上CSVを読み込む</a><span class="hint">手元にCSVがない場合は「サンプルで試す」をご利用ください。</span></div>
+      <div id="sku-content" hidden>
+        <p id="sort-status" class="hint" role="status" aria-live="polite"></p>
+        <p class="mobile-hint hint">表は横にスクロールできます</p>
+        <div class="table-wrap" role="region" aria-label="SKU別集計表" tabindex="0"><table><caption class="sr-only">SKU別の実績。並べ替えとページ切替は表の前後にあります。</caption><thead><tr><th scope="col">SKU</th><th scope="col" data-sort="quantity">販売数量</th><th scope="col" data-sort="revenue" aria-sort="descending">売上</th><th scope="col">売上原価</th><th scope="col" data-sort="profit">粗利益</th><th scope="col" data-sort="margin">粗利益率</th></tr></thead><tbody id="skus"></tbody></table></div>
+        <nav id="pagination" class="pagination" aria-label="SKU集計のページ"><span id="page-status" role="status" aria-live="polite"></span><div><button id="prev-page" class="subtle">前の50件</button><button id="next-page" class="subtle">次の50件</button></div></nav>
+      </div>
+    </section>
+    <footer><span>商いノート <span class="footer-version">Ver.1.1</span></span><span>取引データは保存されません。再読み込みすると消去されます。</span></footer>
+  </main>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

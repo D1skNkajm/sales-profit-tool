@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="4問で、ECの利益管理を見直すきっかけに。登録不要・無料の商いノート利益管理診断。">
+  <title>無料EC利益管理診断 | 商いノート</title>
+  <link rel="stylesheet" href="diagnosis.css">
+</head>
+<body>
+  <a class="skip" href="#main">本文へ移動</a>
+  <header><div class="header-inner"><a class="brand" href="../">商いノート</a><span class="version">Ver.1.2</span><a class="tool-link" href="../">無料ツールへ</a></div></header>
+  <main id="main">
+    <div class="intro"><p class="eyebrow">商いを見直す、最初の一歩</p><h1>無料EC利益管理診断</h1><p>4問で、利益管理の「次に取り組むこと」を整理します。</p><ul class="facts"><li>目安30〜60秒</li><li>登録・メール入力不要</li><li>回答の外部送信なし</li></ul></div>
+    <section id="question-panel" class="panel" aria-label="診断の質問">
+      <div class="progress-heading"><span id="step-label">質問 1 / 4</span><span>選択式・全4問</span></div>
+      <progress id="progress" value="1" max="4" aria-label="現在の質問、全4問中1問目">1 / 4</progress>
+      <form id="question-form">
+        <fieldset id="question-fields"><legend id="question-title" tabindex="-1"></legend><p id="question-help" class="muted"></p><div id="options" class="options"></div></fieldset>
+        <div class="step-actions"><button id="back" type="button" class="secondary" disabled>戻る</button><button id="next" type="submit" class="primary" disabled>次へ</button></div>
+        <p id="selection-hint" class="hint" role="status">1つ選択すると次へ進めます。</p>
+      </form>
+    </section>
+    <section id="result-panel" hidden aria-labelledby="result-title">
+      <div class="result-heading"><p class="eyebrow">診断結果</p><h2 id="result-title" tabindex="-1">利益管理を整えるためのヒント</h2><p id="result-intro"></p></div>
+      <p class="disclaimer">この診断は自己申告に基づく参考情報です。実際の経営状況やデータを検証したものではありません。利益の改善や特定の成果を保証するものではありません。</p>
+      <ol id="recommendations" class="recommendations"></ol>
+      <section class="channel-note" aria-labelledby="channel-title"><h3 id="channel-title">販売チャネルに合わせた準備</h3><p id="channel-note"></p></section>
+      <details class="answer-review"><summary>今回の回答を確認する</summary><dl id="answer-summary"></dl></details>
+      <div class="review-actions"><button id="review" class="secondary" type="button">回答を見直す</button><button id="restart" class="text-button" type="button">最初からやり直す</button></div>
+      <section class="panel tool-cta" aria-labelledby="tool-title"><p class="eyebrow">次の一歩に</p><h3 id="tool-title">CSVで、売上と粗利益を確かめる</h3><p>無料の商いノートで、SKU別・月別の売上、原価、粗利益、粗利益率を確認できます。まずはサンプルCSVでもお試しいただけます。</p><p class="hint">送料・手数料・広告費はツールの集計対象外です。これらの費用は別途整理してください。</p><a id="free-tool" class="primary link-button" href="../">無料ツールを使う</a></section>
+      <section class="panel support" aria-labelledby="support-title"><div class="support-heading"><h3 id="support-title">導入支援を準備しています</h3><span class="badge">提供準備中</span></div><p>データの整理や、分析の始め方を一緒に確認する支援を検討しています。</p><details><summary>導入支援について知る</summary><p class="price">9,800円 <span>（仮価格）</span></p><p>内容・価格・提供時期は未確定で、変更する場合があります。現段階では相談申込・契約・決済の受付は行っていません。個人情報の入力も不要です。</p><p class="hint">サービス案内ページの公開後に、こちらからご案内する予定です。</p></details></section>
+    </section>
+    <noscript><p class="disclaimer">診断にはJavaScriptが必要です。ブラウザの設定で有効にしてください。<a href="../">無料ツールへ戻る</a></p></noscript>
+    <footer><p>商いノート</p><p>回答はこのページ内だけで使用し、Cookieや端末のストレージには保存しません。再読み込みすると最初から始まります。</p></footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

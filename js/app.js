@@ -1,9 +1,10 @@
 import {readSalesFile, parseSalesCSV, toCSV} from './data.js';
 import {aggregateSales} from './aggregate.js';
+import {sortSkus, pageSkus, SORT_LABELS, yen, percent, profitText} from './presentation.js';
+import {renderChart} from './chart.js';
 const $ = id => document.getElementById(id);
-const yen = n => new Intl.NumberFormat('ja-JP', {style:'currency', currency:'JPY', maximumFractionDigits:2}).format(n);
-const percent = n => n === null ? '計算不能' : `${n.toFixed(1)}%`;
 let current = null, requestId = 0;
+let chartMode = 'amount', selectedMonth = '', sortDirection = 'desc', sortedSkus = [], skuPage = 0;
 function error(message, errors = []) {
   const box = $('errors'); box.replaceChildren(); box.hidden = false;
   const title = document.createElement('strong'); title.textContent = message; box.append(title);
@@ -13,6 +14,8 @@ function error(message, errors = []) {
     box.append(list);
     if (errors.length > 100) box.append(document.createTextNode(`ほか${errors.length - 100}件。先頭100件を表示しています。`));
   }
+  const note = document.createElement('p'); note.textContent = current ? '前回読み込んだデータを表示しています。' : 'データはまだ読み込まれていません。'; box.append(note);
+  box.focus();
 }
 function tableBody(id, rows) {
   $(id).replaceChildren(...rows.map(values => {
@@ -21,42 +24,77 @@ function tableBody(id, rows) {
     return tr;
   }));
 }
-function chart(months) {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns,'svg');
-  const width = Math.max(680, months.length * 82), height = 240;
-  svg.setAttribute('viewBox',`0 0 ${width} ${height}`); svg.style.minWidth = `${width}px`;
-  svg.setAttribute('role','img'); svg.setAttribute('aria-label','月別売上・粗利益グラフ。正確な数値は下の月別表をご確認ください。');
-  const el = (tag, attrs, text) => {const node = document.createElementNS(ns,tag); for(const [k,v] of Object.entries(attrs)) node.setAttribute(k,v); if(text) node.textContent = text; svg.append(node); return node;};
-  const min = Math.min(0,...months.map(m=>m.profit)), max = Math.max(1,...months.map(m=>m.revenue),...months.map(m=>m.profit));
-  const y = value => 190 - (value-min)/(max-min)*164;
-  for(let i=0;i<=4;i++) {const value=min+(max-min)*i/4; const pos=y(value); el('line',{x1:75,y1:pos,x2:width-12,y2:pos}); el('text',{x:65,y:pos+4,'text-anchor':'end'},`${Math.round(value/1000)}千円`);}
-  el('line',{x1:75,y1:y(0),x2:width-12,y2:y(0)});
-  const step=(width-90)/months.length;
-  months.forEach((m,i)=>{
-    const x=82+i*step+step/2;
-    [[m.revenue,-19,'var(--accent)'],[m.profit,2,'#80b9ee']].forEach(([value,offset,fill])=>{
-      const rect=el('rect',{x:x+offset,y:Math.min(y(value),y(0)),width:17,height:Math.max(0.5,Math.abs(y(value)-y(0))),rx:2,fill});
-      const title=document.createElementNS(ns,'title');title.textContent=`${m.key} ${offset<0?'売上':'粗利益'} ${yen(value)}`;rect.append(title);
-    });
-    el('text',{x,y:219,'text-anchor':'middle'},m.key);
+function renderMonthDetail(key) {
+  selectedMonth = key;
+  $('month-select').value = key;
+  const month = current.months.find(m => m.key === key);
+  const heading = document.createElement('h3'); heading.textContent = `${key.replace('-', '年')}月`;
+  const items = [['売上', yen(month.revenue)], ['売上原価', yen(month.cogs)], ['粗利益', profitText(month.profit)], ['粗利益率', percent(month.margin)]];
+  $('month-detail').replaceChildren(heading, ...items.map(([label, value]) => {
+    const dl = document.createElement('dl'), dt = document.createElement('dt'), dd = document.createElement('dd');
+    dt.textContent = label; dd.textContent = value;
+    if (label === '粗利益' && month.profit < 0) dd.className = 'negative';
+    dl.append(dt, dd); return dl;
+  }));
+}
+function drawChart() {
+  if (!current) return;
+  $('amount-mode').setAttribute('aria-pressed', String(chartMode === 'amount'));
+  $('margin-mode').setAttribute('aria-pressed', String(chartMode === 'margin'));
+  $('legend').replaceChildren(...(chartMode === 'margin' ? [['revenue-key', '粗利益率']] : [['revenue-key', '売上'], ['profit-key', '粗利益']]).map(([className, label]) => {
+    const span = document.createElement('span'); span.className = className; span.textContent = label; return span;
+  }));
+  renderChart($('chart'), current.months, chartMode, selectedMonth, renderMonthDetail);
+}
+function renderSkuPage() {
+  const data = pageSkus(sortedSkus, skuPage); skuPage = data.page;
+  tableBody('skus', data.rows.map(s => [s.key, s.quantity.toLocaleString('ja-JP'), yen(s.revenue), yen(s.cogs), profitText(s.profit), percent(s.margin)]));
+  $('page-status').textContent = `${data.start + 1}〜${data.end}件 / ${sortedSkus.length.toLocaleString('ja-JP')}件`;
+  $('prev-page').disabled = skuPage === 0;
+  $('next-page').disabled = skuPage === data.pages - 1;
+}
+function updateSort() {
+  if (!current) return;
+  const key = $('sort-key').value;
+  sortedSkus = sortSkus(current.skus, key, sortDirection); skuPage = 0;
+  const desc = sortDirection === 'desc';
+  $('sort-direction').textContent = desc ? '高い順 ↓' : '低い順 ↑';
+  $('sort-direction').setAttribute('aria-label', `並べ替え方向：${desc ? '降順。昇順' : '昇順。降順'}に切り替える`);
+  $('sort-status').textContent = `${SORT_LABELS[key]}の${desc ? '高い順' : '低い順'}${key === 'margin' ? '（計算不能は末尾）' : ''}・1ページ50件`;
+  document.querySelectorAll('[data-sort]').forEach(th => {
+    if (th.dataset.sort === key) th.setAttribute('aria-sort', desc ? 'descending' : 'ascending');
+    else th.removeAttribute('aria-sort');
   });
-  $('chart').replaceChildren(svg);
+  renderSkuPage();
 }
 function render(result, count, label, dates) {
   current = result;
-  for (const key of ['revenue','cogs','profit']) $(key).textContent = yen(result.total[key]);
-  $('profit').classList.toggle('negative',result.total.profit<0);
+  for (const key of ['revenue', 'cogs', 'profit']) $(key).textContent = yen(result.total[key]);
+  $('profit').classList.toggle('negative', result.total.profit < 0);
+  $('profit-note').replaceChildren();
+  if (result.total.profit < 0) {
+    const badge = document.createElement('span'); badge.className = 'loss-badge'; badge.textContent = '赤字';
+    $('profit-note').append(badge, '原価が売上を上回っています');
+  } else $('profit-note').textContent = '売上から原価を引いた利益';
   $('margin').textContent = percent(result.total.margin);
-  $('status').textContent = `${label} · ${count}件 · ${dates[0]} 〜 ${dates[dates.length-1]} · 販売数量 ${result.total.quantity.toLocaleString('ja-JP')}点`;
-  $('sku-count').textContent = `${result.skus.length} SKU`;
-  tableBody('skus',result.skus.map(s=>[s.key,s.quantity.toLocaleString('ja-JP'),yen(s.revenue),yen(s.cogs),yen(s.profit),percent(s.margin)]));
-  tableBody('months',result.months.map(m=>[m.key,yen(m.revenue),yen(m.profit)]));
-  chart(result.months); $('export').disabled=false;
+  $('status').textContent = `${label}：${count.toLocaleString('ja-JP')}件を読み込みました。期間 ${dates[0]} 〜 ${dates[dates.length - 1]} ／ 販売数量 ${result.total.quantity.toLocaleString('ja-JP')}点`;
+  $('sku-count').textContent = `${result.skus.length.toLocaleString('ja-JP')} SKU`;
+  $('chart-empty').hidden = true; $('chart-content').hidden = false;
+  $('sku-empty').hidden = true; $('sku-content').hidden = false;
+  for (const id of ['export', 'sort-key', 'sort-direction', 'amount-mode', 'margin-mode']) $(id).disabled = false;
+  updateSort();
+  tableBody('months', result.months.map(m => [m.key, yen(m.revenue), yen(m.cogs), profitText(m.profit), percent(m.margin)]));
+  $('month-select').replaceChildren(...result.months.map(m => {
+    const option = document.createElement('option'); option.value = m.key; option.textContent = m.key; return option;
+  }));
+  renderMonthDetail(result.months[result.months.length - 1].key);
+  drawChart();
 }
 async function load(getData, label) {
   const id = ++requestId;
   $('file').disabled = true; $('sample').disabled = true;
+  document.querySelector('.upload').setAttribute('aria-busy', 'true');
+  $('sample').textContent = '読み込み中…';
   try {
     const {rows,errors} = await getData();
     if(id !== requestId) return;
@@ -65,7 +103,7 @@ async function load(getData, label) {
     render(result,rows.length,label,rows.map(r=>r.date).sort());
     $('errors').hidden=true;
   } catch(e) {if(id===requestId) error(e.message || 'CSVを読み込めませんでした。');}
-  finally {if(id===requestId){$('file').disabled=false;$('sample').disabled=false;$('file').value='';}}
+  finally {if(id===requestId){$('file').disabled=false;$('sample').disabled=false;$('file').value='';$('sample').textContent='サンプルで試す';document.querySelector('.upload').setAttribute('aria-busy','false');}}
 }
 $('file').addEventListener('change',event=>{const file=event.target.files[0];if(file) load(()=>readSalesFile(file),file.name);});
 $('sample').addEventListener('click',()=>load(async()=>{
@@ -80,6 +118,22 @@ $('export').addEventListener('click',()=>{
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download='sales-profit-summary.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
 });
+
+$('amount-mode').addEventListener('click', () => {chartMode = 'amount'; drawChart();});
+$('margin-mode').addEventListener('click', () => {chartMode = 'margin'; drawChart();});
+$('month-select').addEventListener('change', () => {renderMonthDetail($('month-select').value); drawChart();});
+$('sort-key').addEventListener('change', updateSort);
+$('sort-direction').addEventListener('click', () => {sortDirection = sortDirection === 'desc' ? 'asc' : 'desc'; updateSort();});
+for (const [id, delta] of [['prev-page', -1], ['next-page', 1]]) $(id).addEventListener('click', () => {
+  skuPage += delta; renderSkuPage();
+});
+let chartWidth = 0;
+const chartObserver = new ResizeObserver(entries => {
+  const width = entries[0].contentRect.width;
+  if (width > 0 && width !== chartWidth) {chartWidth = width; drawChart();}
+});
+chartObserver.observe($('chart'));
+
 const themes=['auto','light','dark'];let theme='auto';
 try{const saved=localStorage.getItem('sales-theme');if(themes.includes(saved))theme=saved;}catch{}
 function applyTheme(){if(theme==='auto')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=theme;$('theme').textContent=`テーマ：${{auto:'自動',light:'ライト',dark:'ダーク'}[theme]}`;}

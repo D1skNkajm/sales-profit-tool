@@ -1,6 +1,15 @@
 # 商いノート / sales-profit-tool
 
-個人販売者・小規模EC向けの売上・利益管理MVPです。CSVを読み込み、全体のKPI、SKU別集計、月別グラフを表示します。日本語UI、ライト／ダーク／OS連動表示、PC・iPad mini向けのレスポンシブレイアウトに対応しています。
+個人販売者・小規模EC向けの売上・利益管理ツール「商いノート」Ver.1.1です。CSVを読み込み、全体のKPI、SKU別集計、月別グラフを表示します。日本語UI、ライト／ダーク／OS連動表示、PC・iPad mini向けのレスポンシブレイアウトに対応しています。
+
+## Ver.1.1 の操作
+
+- KPIはPC・iPad横画面で4列、iPhoneで2列。計算方法は折りたたんで確認できます。赤字は色と「赤字」の文字で示します。
+- 月別グラフは「売上・粗利益」と「粗利益率」を切り替えられます。月をタップ／クリックするか、「確認する月」で選ぶと4指標の数値を確認できます。キーボードでは月にフォーカス後、Enter／Space／左右矢印で操作できます。
+- 売上0円の月は利益率を0%に置き換えず、グラフに「—」、数値欄に「計算不能」と表示します。CSVにない月の数値は補完しません。
+- SKU一覧は売上・粗利益・粗利益率・販売数量の高い順／低い順で並べ替えられます。同値ならSKU名順、計算不能の率はどちらの方向でも末尾です。
+- SKUは1ページ50件。並べ替え後は先頭ページに戻ります。CSV出力にはページや並べ替えにかかわらず全件の集計を含めます。スマートフォンでは表と長いグラフを横スクロールできます。
+- CSV読込成功時は件数・期間を表示し、エラー時は該当レコードと原因にフォーカスします。失敗したファイルの一部だけを集計せず、前回成功した結果を保持します。
 
 ## 起動
 
@@ -46,9 +55,13 @@ CUP-002,15,1800,700,2026-01-20
 - `index.html` / `style.css`：ダッシュボード、レスポンシブ／テーマ表示
 - `js/data.js`：ファイル取得、CSV解析・検証、CSVシリアライズ
 - `js/aggregate.js`：DOMや取得元に依存しない集計関数
-- `js/app.js`：画面、SVGグラフ、ダウンロード操作
+- `js/app.js`：画面の状態・操作、ダウンロード
+- `js/chart.js`：実データからの選択可能なSVGグラフ
+- `js/presentation.js`：並べ替え、ページ分割、表示用の軸範囲・書式（集計処理から分離）
 - `sample.csv`：8件・3SKU・4か月のサンプル
-- `tests/sales.test.js`：CSV／計算ロジックの回帰テスト
+- `tests/sales.test.js`：既存CSV／計算ロジックの10件の回帰テスト
+- `tests/presentation.test.js`：並べ替え・ページ分割・利益率グラフ等の10件のテスト
+- `tests/browser_smoke.py`：任意実行のブラウザ回帰テスト
 
 API連携を追加するときはデータ取得アダプターから `{sku, quantity, price, cost, date}` の配列を返し、同じ検証を経て `aggregateSales(rows)` に渡す構成にできます。
 
@@ -72,17 +85,31 @@ npm test
 4. 売上0円のCSVで粗利益率が「計算不能」になることを確認。
 5. テーマ切替、iPad mini 6の横画面（1133×744）・縦画面、PCで表とグラフを確認。
 
-Chromiumで上記の主要操作と画面幅1440／1133／744／375pxを検証済みです。iPad mini 6の実機Safari検証は別途必要です。
+### Ver.1.1 の検証
+
+`npm test` は既存10件＋追加10件の計20件です。追加分は4指標の両方向ソート、同値／計算不能の順序、入力配列の保持、ページ境界、グラフの負数／ゼロ／計算不能、赤字表記を検証します。既存の取得・計算ロジック、CSV仕様、サンプル、既存テストは変更していません。
+
+ブラウザ回帰テストはPython版Playwrightとブラウザが導入された開発環境で、静的サーバーを起動して実行できます。アプリ本体の依存関係ではありません。
+
+```sh
+python3 tests/browser_smoke.py
+# WebKitがインストール済みの環境では：
+BROWSER=webkit python3 tests/browser_smoke.py
+```
+
+`BASE_URL`（既定 `http://127.0.0.1:8000`）、`CHROMIUM_PATH`（既定 `/usr/bin/chromium`）、`ARTIFACTS`（既定 `/tmp/sales-ui-v1.1`）で検証先・出力先を指定できます。
+
+Chromiumで1440／1133／744／390／375pxのライト・ダーク表示、サンプルKPI、CSV入出力、利益率切替、月選択（クリック／キーボード／選択欄）、4指標の両方向ソート、エラー保持、赤字／計算不能／ゼロ、1,203SKUの50件ページ分割、外部通信が発生しないことを検証します。タッチ対応コンテキストも使用しますが、Safari実機の動作を保証するものではありません。Ver.1.1のiPad mini 6／iPhone Safari実機検証は別途必要です。
 
 ## GitHubへの反映
 
-変更を確認し、作業ブランチにコミットしてPull Requestを作成してください（この開発では自動push・デプロイは行いません）。
+変更を確認し、作業ブランチにコミットしてPull Requestを作成してください。mainへの直接push・マージ・デプロイは行いません。
 
 ```sh
-git switch -c feat/sales-profit-mvp
+git switch -c feature/ui-v1.1
 git add README.md index.html style.css js sample.csv package.json tests
-git commit -m "Build browser-based sales profit MVP"
-git push -u origin feat/sales-profit-mvp
+git commit -m "Refine dashboard UX for v1.1"
+git push -u origin feature/ui-v1.1
 ```
 
 GitHubで `main` 宛てのPull Requestを作り、レビュー後にマージします。公開サイトへのデプロイや外部サービス登録は別途判断してください。
